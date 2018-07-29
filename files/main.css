@@ -10,6 +10,8 @@ body {
 #canvas {
 	margin-left: calc(50% - 250px);
 	margin-top: 30px;
+	width: 500px;
+	height: 500px;
 }
 
 p.info {
@@ -21,4 +23,18 @@ p.info {
 
 p.info > a {
 	color: #ccc !important;
+}
+
+@media (max-width: 767px) {
+	#canvas {
+		margin: 0;
+		width: 100%;
+		height: 100vh;
+	}
+	p.info {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 10px;
+	}
 }
