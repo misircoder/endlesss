@@ -1,19 +1,23 @@
 var canvas = document.getElementById('canvas');
 var ctx = canvas.getContext('2d');
 
-const WIDTH = 500;
-const HEIGHT = 500;
+var WIDTH = canvas.clientWidth;
+var HEIGHT = canvas.clientHeight;
+
+canvas.setAttribute('width', WIDTH);
+canvas.setAttribute('height', HEIGHT);
+
 const ARROW_LEFT = 37;
 const ARROW_RIGHT = 39;
 const SPACE_KEY = 32;
 const PLAYER_SPEED = 300;
 const BG_SPEED = 100;
-const MAX_W = 200;
-const PICKUPS = [RadiusPickup, SpeedPickup];
+const MAX_W = WIDTH*0.4;
 
-var ltime = Date.now();
+var ltime = performance.now();
 var dt = 0;
 var keys = {};
+var mouse = {};
 
 var player = {};
 var playerSpeed = PLAYER_SPEED;
@@ -26,6 +30,7 @@ var highscore = 0;
 var newpickupwait = 3;
 var speedbooster = 1;
 var menu = 1;
+var no_coll = 0;
 
 function reset(ls = true)
 {
@@ -36,8 +41,9 @@ function reset(ls = true)
 	player = { x: WIDTH/2, y: 50, r: 10, newr: 10 };
 	score = 0;
 	pickups = [];
-	newpickupwait = 3;
+	newpickupwait = rand(3, 10);
 	speedbooster = 1;
+	no_coll = 0;
 	
 	if (ls) localStorage.setItem('hs', highscore);
 	
@@ -64,7 +70,7 @@ function update()
 {
 	if (gameover || menu)
 	{
-		if (keys[SPACE_KEY])
+		if (keys[SPACE_KEY] || mouse[0])
 		{
 			if (menu)
 			{
@@ -78,21 +84,21 @@ function update()
 			return;
 		}
 	}
-
+	
 	if (score > 100)
 	{
 		newpickupwait -= dt;
-
+		
 		if (newpickupwait <= 0)
 		{
-			newpickupwait = 15;
+			newpickupwait = rand(10, 20);
 			pickups[pickups.length] = new PICKUPS[rand_int(0, PICKUPS.length-1)](rand_int(50, WIDTH-50), HEIGHT + 5);
 		}
-
+		
 		for (var i=0; i<pickups.length; i++)
 		{
 			pickups[i].y = pickups[i].clip.y = pickups[i].y - speed*speedbooster*dt;
-
+			
 			if (RectCircleColliding(player, pickups[i].clip) && !pickups[i].enabled)
 			{
 				pickups[i].state(true);
@@ -114,7 +120,7 @@ function update()
 		
 		if (platforms[i].y < -10) {
 			var w = rand_int(50, MAX_W);
-			platforms[i].y += 710;
+			platforms[i].y += 10 + 70*platforms.length;
 			platforms[i].x = rand_int(0, WIDTH-w);
 			platforms[i].w = w;
 		}
@@ -122,13 +128,14 @@ function update()
 		if (!menu)
 		{
 			score += dt*speedbooster;
-			speed += dt*0.01;
+			speed += dt*0.1*speedbooster;
 		}
 		
-		if (RectCircleColliding(player, platforms[i]) && speedbooster == 1 && !menu)
+		if (RectCircleColliding(player, platforms[i]) && no_coll == 0 && !menu)
 		{
 			speed = playerSpeed = 0;
 			gameover = 1;
+			mouse[0] = false;
 		}
 	}
 	
@@ -158,7 +165,7 @@ function draw_game()
 		if (p.enabled)
 		{
 			ctx.fillStyle = p.color;
-			ctx.fillRect(10, 40 + 20*epi, 70*(p.time/5), 10);
+			ctx.fillRect(10, 40 + 20*epi, 70*(p.time/p.maxtime), 10);
 			epi++;
 		}
 	});
@@ -170,7 +177,7 @@ function draw()
 	ctx.fillRect(0, 0, WIDTH, HEIGHT);
 	
 	draw_game();
-
+	
 	ctx.fillStyle = 'gray';
 	ctx.font = "10px Arial";
 	ctx.textAlign = 'start';
@@ -184,7 +191,7 @@ function draw()
 		ctx.font = '25px monospace';
 		ctx.fillText(Math.round(score), WIDTH/2, 60);
 	}
-
+	
 	if (gameover)
 	{
 		ctx.fillStyle = 'rgba(255,255,255,0.9)';
@@ -197,7 +204,7 @@ function draw()
 		ctx.font = '10px monospace';
 		ctx.fillText('PRESS "SPACE" TO RESTART GAME', WIDTH/2, 300);
 	}
-
+	
 	if (menu)
 	{
 		ctx.fillStyle = 'rgba(255,255,255,0.9)';
@@ -214,8 +221,9 @@ function draw()
 
 function loop()
 {
-	dt = (Date.now() - ltime) / 1000;
-	ltime = Date.now();
+	now = performance.now();
+	dt = (now - ltime) / 1000;
+	ltime = now;
 	
 	update();
 	draw();
@@ -225,8 +233,24 @@ function loop()
 
 function init()
 {
+	document.onselectstart = function() { return false; }
 	document.onkeydown = function(e) { keys[e.keyCode] = true; };
 	document.onkeyup = function(e) { keys[e.keyCode] = false; };
+	
+	document.onmousedown = function(e) { mouse[e.button] = [e.clientX, e.clientY]; };
+	document.onmousemove = function(e) { if (mouse[0]) mouse[0] = [e.clientX, e.clientY]; };
+	document.onmouseup = function(e) { mouse[e.button] = false; };
+	
+	document.ontouchstart = function(e) { mouse[0] = [e.touches[0].clientX, e.touches[0].clientY]; };
+	document.ontouchmove = function(e) { if (mouse[0]) mouse[0] = [e.touches[0].clientX, e.touches[0].clientY]; };
+	document.ontouchend = function(e) { mouse[0] = false; };
+	
+	window.onresize = function(e) {
+		WIDTH = canvas.clientWidth;
+		HEIGHT = canvas.clientHeight;
+		canvas.setAttribute('width', WIDTH);
+		canvas.setAttribute('height', HEIGHT);
+	};
 }
 
 init();
@@ -241,9 +265,17 @@ function rand_int(mn, mx)
 	return mn + Math.round(Math.random() * (mx-mn));
 }
 
+function rand(mn, mx)
+{
+	return mn + Math.random() * (mx-mn);
+}
+
 function h_input()
 {
-	return keys[ARROW_LEFT] && keys[ARROW_RIGHT] ? 0 : (keys[ARROW_LEFT] ? -1 : keys[ARROW_RIGHT] ? 1 : 0);
+	if (is_touch_device())
+		return mouse[0] ? ( mouse[0][0] > WIDTH/2 ? 1 : -1 ) : 0;
+	else
+		return keys[ARROW_LEFT] && keys[ARROW_RIGHT] ? 0 : (keys[ARROW_LEFT] ? -1 : keys[ARROW_RIGHT] ? 1 : 0);
 }
 
 function RectCircleColliding(circle,rect){
@@ -259,4 +291,18 @@ function RectCircleColliding(circle,rect){
 	var dx=distX-rect.w/2;
 	var dy=distY-rect.h/2;
 	return (dx*dx+dy*dy<=(circle.r*circle.r));
+}
+
+function is_touch_device() {
+	var prefixes = ' -webkit- -moz- -o- -ms- '.split(' ');
+	var mq = function(query) {
+		return window.matchMedia(query).matches;
+	}
+	
+	if (('ontouchstart' in window) || window.DocumentTouch && document instanceof DocumentTouch) {
+		return true;
+	}
+	
+	var query = ['(', prefixes.join('touch-enabled),('), 'heartz', ')'].join('');
+	return mq(query);
 }
