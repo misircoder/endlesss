@@ -6,6 +6,7 @@ class BasePickup {
         this.color = '#AAAAAA';
         this.enabled = false;
         this.time = 5;
+        this.maxtime = 5;
         this.init();
     }
     draw(ctx) {
@@ -43,8 +44,27 @@ class SpeedPickup extends BasePickup {
     }
     enable() {
         speedbooster += 5;
+        no_coll ++;
     }
     disable() {
         speedbooster -= 5;
+        setTimeout(function() { if (gameover == 0) no_coll --; }, 1000);
     }
 }
+
+class LuckPickup extends BasePickup {
+    init() {
+        this.color = '#AFA';
+        this.maxtime = 10;
+        this.time = 10;
+    }
+    enable() {
+        no_coll ++;
+    }
+    disable() {
+        no_coll --;
+    }
+}
+
+
+const PICKUPS = [RadiusPickup, SpeedPickup, LuckPickup];
